@@ -1,0 +1,30 @@
+[project]
+name = "local-rag-chat"
+version = "0.1.0"
+description = "Fully-local RAG chat backend (Ollama, 6K context, .md/.txt ingestion)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "numpy>=2.0",
+    "pydantic>=2.7",
+    "langchain-text-splitters>=0.3",  # markdown-aware + recursive splitting (standalone, not full LangChain)
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rag"]

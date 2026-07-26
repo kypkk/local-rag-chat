@@ -1,0 +1,26 @@
+Tech Stack
+
+The technologies used to build the Local RAG Chat application, split into
+the backend and the frontend.
+
+Backend
+- Python 3.12 -- the implementation language
+- FastAPI -- web framework for the thin HTTP endpoints
+- Uvicorn -- the ASGI server that runs the app
+- httpx -- HTTP client used to call the local Ollama server
+- NumPy -- powers the hand-written vector store (exact/flat cosine search)
+- Pydantic -- validates incoming HTTP request bodies at the API boundary
+- langchain-text-splitters -- markdown-aware and recursive chunking of documents
+- Ollama -- local model runtime (no cloud), serving two models:
+  - llama3.2:3b -- the chat / generation model
+  - nomic-embed-text -- the embedding model (768-dimensional vectors)
+- pytest -- the test framework
+- uv -- Python package and virtual-environment manager
+
+Frontend
+- HTML -- a single-page chat UI (one index.html file)
+- CSS -- styling with theme variables and message bubbles, no framework
+- JavaScript (vanilla) -- no framework and no build step
+- fetch() with ReadableStream and TextDecoder -- consume the streamed
+  server response token by token
+- Served same-origin by FastAPI -- avoids CORS entirely

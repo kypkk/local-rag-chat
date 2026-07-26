@@ -1,0 +1,23 @@
+# ── Python ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# uv.lock is committed on purpose (reproducible builds) -- do not ignore it.
+
+# ── This project ───────────────────────────────
+# Persisted vector index -- a build artifact, rebuilt on first run.
+.index/
+*.npz
+
+# Local working notes, not part of the deliverable.
+DECISIONS.md
+slide/script.md
+
+# ── Editor / OS ────────────────────────────────
+.DS_Store
+.idea/
+.vscode/

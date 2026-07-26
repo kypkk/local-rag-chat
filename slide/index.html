@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Demo · Ben</title>
+<style>
+  :root{
+    --bg:#fdfcf8; --fg:#1c1b18; --muted:#6d685e; --accent:#b3541e; --accent-soft:#f6e8dc;
+    --link:#1f5e8a; --border:#e3ded3; --card:#f4f1e8; --good:#2e7d32; --bad:#c05340; --code-bg:#efece3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#171613; --fg:#e8e4da; --muted:#9a958a; --accent:#e08c4f; --accent-soft:#33261c;
+      --link:#7ab3d9; --border:#363329; --card:#211f1a; --good:#81c784; --bad:#ef9a8a; --code-bg:#272419; }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--fg); overflow:hidden;
+    font-family:Georgia,"Iowan Old Style","Noto Serif TC","Songti TC","PingFang TC",serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{ height:100vh; width:100vw; position:relative; }
+  .slide{
+    position:absolute; inset:0; display:none;
+    flex-direction:column; justify-content:center;
+    padding:5vh 8vw; overflow:hidden;
+  }
+  .slide.active{ display:flex; animation:fade .35s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+  .kicker{ color:var(--accent); font-size:1rem; letter-spacing:.16em; text-transform:uppercase;
+    font-family:-apple-system,"PingFang TC",sans-serif; font-weight:700; margin-bottom:1.2rem; }
+  h1{ font-size:5.5rem; line-height:1.05; font-weight:600; letter-spacing:-.01em; }
+  h2{ font-size:2.7rem; line-height:1.2; font-weight:600; margin-bottom:1.6rem; }
+  h3{ font-size:1.35rem; font-weight:600; color:var(--accent); margin:0 0 .5rem;
+    font-family:-apple-system,"PingFang TC",sans-serif; }
+  p,li{ font-size:1.35rem; line-height:1.65; }
+  .lede{ font-size:1.7rem; color:var(--muted); margin-top:1.5rem; line-height:1.5; }
+  ul{ padding-left:1.5rem; margin-top:.5rem; } li{ margin:.55rem 0; }
+  strong{ color:var(--accent); font-weight:700; }
+  code,pre{ font-family:"SF Mono",ui-monospace,Menlo,monospace; }
+  code{ background:var(--code-bg); padding:.1em .4em; border-radius:5px; font-size:.82em; }
+  pre{ background:var(--code-bg); padding:1.1rem 1.4rem; border-radius:10px; overflow:auto;
+    font-size:1.05rem; line-height:1.55; margin:.4rem 0; }
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:2.5rem; align-items:start; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1.4rem 1.6rem; }
+  .card.a{ border-left:5px solid var(--accent); }
+  .card.g{ border-left:5px solid var(--good); }
+  .card.b{ border-left:5px solid var(--bad); }
+  .tag{ display:inline-block; font-family:-apple-system,"PingFang TC",sans-serif; font-size:.95rem;
+    font-weight:600; background:var(--accent-soft); color:var(--accent); border-radius:999px;
+    padding:.3rem .9rem; margin-top:1.6rem; }
+  .meme{ max-height:64vh; max-width:52vw; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.22);
+    border:1px solid var(--border); }
+  .dialog{ font-family:-apple-system,"PingFang TC",sans-serif; font-size:1.4rem; line-height:2; }
+  .dialog b{ color:var(--accent); }
+  figure svg{ width:100%; height:auto; }
+  figcaption{ color:var(--muted); font-size:1rem; text-align:center; margin-top:.8rem;
+    font-family:-apple-system,"PingFang TC",sans-serif; }
+  .center{ align-items:center; text-align:center; }
+  .small{ font-size:1.1rem; color:var(--muted); }
+  .note{ font-family:-apple-system,"PingFang TC",sans-serif; }
+
+  /* watermark on every slide */
+  .watermark{
+    position:fixed; right:1.6rem; bottom:1rem; z-index:50;
+    font-family:-apple-system,"PingFang TC",sans-serif; font-size:1.1rem; font-weight:700;
+    letter-spacing:.02em; color:var(--accent); opacity:.85; user-select:none; pointer-events:none;
+  }
+  /* chrome */
+  .counter{ position:fixed; left:1.4rem; bottom:1rem; z-index:50;
+    font-family:-apple-system,monospace; font-size:.8rem; color:var(--muted); }
+  .progress{ position:fixed; top:0; left:0; height:4px; background:var(--accent); z-index:50;
+    transition:width .3s ease; }
+  .hint{ position:fixed; right:1.4rem; top:.9rem; z-index:50; font-size:.72rem; color:var(--muted);
+    font-family:-apple-system,sans-serif; opacity:.6; }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="hint">← → to navigate</div>
+<div class="counter" id="counter">1 / 12</div>
+<div class="watermark">This html slide is made by claude code</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · TITLE -->
+  <section class="slide center">
+    <div class="kicker">Take-home · HP</div>
+    <h1>RAG Demo</h1>
+    <p class="lede">A fully-local, RAG-enabled AI chat application<br>— runs on my laptop, no cloud, 6K context.</p>
+    <span class="tag">Ben · code-review walkthrough</span>
+  </section>
+
+  <!-- 2 · THE ASK (slide2 meme) -->
+  <section class="slide">
+    <h2>How this started</h2>
+    <div class="cols">
+      <img class="meme" src="src/slide2.png" alt="the ask">
+      <div>
+        <p class="small note">This role came through <strong>Eric's</strong> referral. When <strong>Justin</strong> called, it felt exactly like this:</p>
+        <div class="dialog" style="margin-top:1.2rem;">
+          <b>Justin:</b> “Ben, you're as good as Eric, right?”<br>
+          <b>Me:</b> “Yeah.”<br>
+          <b>Justin:</b> “Make a Local RAG app.”<br>
+          <b>Me:</b> “…….”
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · NEVER BUILT ONE (slide3 meme) -->
+  <section class="slide">
+    <h2>The honest starting point</h2>
+    <div class="cols">
+      <img class="meme" src="src/slide3.png" alt="never built a RAG app">
+      <div>
+        <p>I <strong>knew the pieces</strong> — an embedding model, a retrieval step, a vector store.</p>
+        <p style="margin-top:1rem;">But I had <strong>never actually built one</strong>. So I didn't know the <strong>real</strong> troubles that only show up in implementation:</p>
+        <ul class="note">
+          <li>streaming tokens to the frontend</li>
+          <li>fitting everything into a 6K budget</li>
+          <li>a small model that <em>over-refuses</em></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · TWO PIPELINES -->
+  <section class="slide">
+    <h2>RAG is two pipelines</h2>
+    <figure>
+      <svg viewBox="0 0 1000 330" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'PingFang TC',sans-serif">
+        <defs>
+          <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L7,3 L0,6 z" fill="var(--muted)"/></marker>
+        </defs>
+        <style>
+          .b{ fill:var(--card); stroke:var(--border); stroke-width:1.5; }
+          .s{ fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.5; }
+          .t{ fill:var(--fg); font-size:17px; font-weight:600; }
+          .l{ fill:var(--muted); font-size:13px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+          .f{ stroke:var(--muted); stroke-width:1.5; fill:none; marker-end:url(#a); }
+          .lab{ fill:var(--accent); font-size:12px; font-weight:700; }
+        </style>
+        <!-- ingestion row (top) -->
+        <text x="40" y="32" class="l" fill="var(--accent)">Ingestion · offline</text>
+        <rect x="40"  y="46" width="140" height="50" rx="9" class="b"/><text x="110" y="77" class="t" text-anchor="middle">Docs</text>
+        <rect x="230" y="46" width="140" height="50" rx="9" class="b"/><text x="300" y="77" class="t" text-anchor="middle">Chunker</text>
+        <rect x="420" y="46" width="140" height="50" rx="9" class="b"/><text x="490" y="77" class="t" text-anchor="middle">Embedder</text>
+        <line x1="180" y1="71" x2="228" y2="71" class="f"/><line x1="370" y1="71" x2="418" y2="71" class="f"/>
+        <!-- shared store (centered between the rows) -->
+        <rect x="415" y="150" width="150" height="56" rx="11" class="s"/>
+        <text x="490" y="174" class="t" text-anchor="middle">Vector</text><text x="490" y="194" class="t" text-anchor="middle">Store</text>
+        <!-- write: embedder ↓ store -->
+        <path d="M490,96 V147" class="f"/>
+        <text x="500" y="127" class="lab">write</text>
+        <!-- query row (bottom) -->
+        <text x="40" y="252" class="l" fill="var(--link)">Query · online</text>
+        <rect x="40"  y="266" width="140" height="50" rx="9" class="b"/><text x="110" y="297" class="t" text-anchor="middle">Question</text>
+        <rect x="230" y="266" width="140" height="50" rx="9" class="b"/><text x="300" y="297" class="t" text-anchor="middle">Retrieve</text>
+        <rect x="420" y="266" width="140" height="50" rx="9" class="b"/><text x="490" y="297" class="t" text-anchor="middle">Build 6K</text>
+        <rect x="610" y="266" width="140" height="50" rx="9" class="b"/><text x="680" y="297" class="t" text-anchor="middle">LLM</text>
+        <rect x="800" y="266" width="160" height="50" rx="9" class="s"/><text x="880" y="297" class="t" text-anchor="middle">Answer › stream</text>
+        <line x1="180" y1="291" x2="228" y2="291" class="f"/><line x1="370" y1="291" x2="418" y2="291" class="f"/>
+        <line x1="560" y1="291" x2="608" y2="291" class="f"/><line x1="750" y1="291" x2="798" y2="291" class="f"/>
+        <!-- read: store ↓← retrieve -->
+        <path d="M455,206 V236 H300 V264" class="f"/>
+        <text x="345" y="228" class="lab">read</text>
+      </svg>
+    </figure>
+  </section>
+
+  <!-- 5 · ARCHITECTURE -->
+  <section class="slide">
+    <h2>My project: 3 layers, everything swappable</h2>
+    <div class="cols">
+      <div>
+        <div class="card a" style="margin-bottom:1rem;">
+          <h3>api · thin</h3>
+          <p class="small note">A route only: parse request → call service → stream. <strong>Zero business logic.</strong></p>
+        </div>
+        <div class="card a" style="margin-bottom:1rem;">
+          <h3>service · orchestration</h3>
+          <p class="small note"><code>RagService</code> wires the components in the right order. The "heart."</p>
+        </div>
+        <div class="card a">
+          <h3>components · behind interfaces</h3>
+          <p class="small note">Chunker, <code>Embedder</code>, <code>VectorStore</code>, <code>LLMClient</code> — each does one thing.</p>
+        </div>
+      </div>
+      <div>
+        <h3>Why this shape</h3>
+        <ul class="note">
+          <li>Three <strong>Protocol</strong> interfaces → I test the whole pipeline with <strong>fakes</strong>, no Ollama.</li>
+          <li>Swap NumPy store → LanceDB, or swap the model — <strong>orchestration doesn't move.</strong></li>
+          <li>Built <strong>bottom-up</strong>: deterministic plumbing first (unit-tested), model last.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="small note" style="margin-top:1.8rem; border-top:1px solid var(--border); padding-top:1rem;">
+      <strong>Backend</strong>: FastAPI · NumPy · langchain-text-splitters &nbsp;·&nbsp;
+      <strong>Frontend</strong>: pure HTML / CSS / JavaScript (no framework)
+    </p>
+  </section>
+
+  <!-- 6 · PHASE 1 -->
+  <section class="slide">
+    <div class="kicker">Bottom layer · the plumbing</div>
+    <h2>Ingestion: docs → chunks → vectors</h2>
+    <div class="cols">
+      <div>
+        <pre><code>load_documents(.md/.txt)
+      ↓
+chunk_documents()
+  MarkdownHeaderTextSplitter  ← headers → citation
+  RecursiveCharacterTextSplitter ← split if oversized
+      ↓
+embed_documents()  → 768-d vectors
+      ↓
+store.add() + save()</code></pre>
+      </div>
+      <div>
+        <h3>The chunker is the interesting part</h3>
+        <ul class="note">
+          <li>Split on <strong>markdown headers first</strong> → each chunk carries its header path as a <strong>citation breadcrumb</strong>.</li>
+          <li>Oversized sections → recursive split, <strong>measured in tokens</strong> (not chars).</li>
+          <li>🔑 <strong>Embed the breadcrumb + body, inject only the body.</strong> A chunk whose body never names its own topic is still findable.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · PHASE 2 -->
+  <section class="slide">
+    <div class="kicker">Model layer · plugging in Ollama</div>
+    <h2>Two Ollama endpoints, two models</h2>
+    <div class="cols">
+      <div class="card g">
+        <h3>/api/embed · nomic-embed-text</h3>
+        <ul class="note">
+          <li>768-dim, then <strong>L2-normalized</strong> so dot product = cosine.</li>
+          <li>Asymmetric prefixes: <code>search_document:</code> vs <code>search_query:</code>.</li>
+          <li>⚠️ Forgetting a prefix <strong>doesn't error</strong> — it silently tanks retrieval. So I <strong>encapsulate</strong> it in the embedder.</li>
+        </ul>
+      </div>
+      <div class="card g">
+        <h3>/api/chat · llama3.2:3b</h3>
+        <ul class="note">
+          <li>Instruct, Q4_K_M quant — runs on Metal, ~2.5&nbsp;GB.</li>
+          <li><strong>Streaming</strong>: newline-delimited JSON, one <code>content</code> delta per line.</li>
+          <li>The final object carries <code>prompt_eval_count</code> → I verify my token estimate against it.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="small" style="margin-top:1.4rem;">Both hidden behind <code>Embedder</code> / <code>LLMClient</code> Protocols — the rest of the app never imports <code>httpx</code>.</p>
+  </section>
+
+  <!-- 8 · PHASE 3 -->
+  <section class="slide">
+    <div class="kicker">Orchestration layer</div>
+    <h2><code>answer()</code>: the conductor</h2>
+    <div class="cols">
+      <div>
+        <pre><code>trim_history         → fit 6K
+condense_question    → standalone
+retrieve             → hits
+build_messages       → messages, kept
+build_options        → num_ctx/keep
+  yield {sources}    ← metadata
+for token in chat_stream:
+  yield {token}      ← streamed</code></pre>
+      </div>
+      <div>
+        <h3>Two things reviewers probe</h3>
+        <ul class="note">
+          <li>🔑 <strong>Asymmetry</strong>: the <em>rewritten</em> question goes to <strong>retrieval</strong>; the <em>original</em> goes to <strong>generation</strong>. Find with one, answer with the other.</li>
+          <li><strong>Chunks are the residual</strong>: subtract system + history + question + reserved output from 6K, pack chunks into what's left. Guard with <code>raise</code>, not <code>assert</code>.</li>
+          <li>It's a <strong>generator</strong> → streaming + lazy; nothing runs until consumed.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · FRONTEND STREAMING -->
+  <section class="slide">
+    <div class="kicker">Frontend · data streaming</div>
+    <h2>One token, Ollama → the bubble</h2>
+    <div class="cols">
+      <div>
+        <pre><code>StreamingResponse(sse())
+  data: {json}\n\n     ← SSE frame
+
+fetch(POST).body.getReader()
+buffer += decode(chunk)
+buffer.split("\n\n")
+buffer = events.pop()  ← keep tail
+switch(msg.type):
+  token  → bubble += text
+  sources→ n → breadcrumb</code></pre>
+      </div>
+      <div>
+        <h3>The pieces that bit me</h3>
+        <ul class="note">
+          <li><strong>fetch</strong>, not <code>EventSource</code> — SSE-over-POST needs a body.</li>
+          <li>Network chunks <strong>don't align</strong> to SSE events → <strong>buffer / split / pop</strong> to reframe.</li>
+          <li><code>json.dumps</code> is a <strong>newline guard</strong>: escapes <code>\n</code> inside a token so it can't fake an event boundary.</li>
+          <li>Model emits <code>[1]</code>; client resolves it to a full <strong>source footnote</strong> — citations never enter history.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · WHAT I DIDN'T EXPECT -->
+  <section class="slide">
+    <h2>What I didn't expect</h2>
+    <div class="cols" style="grid-template-columns:1fr 1fr 1fr; gap:1.6rem;">
+      <div class="card b">
+        <h3>The small model over-refused</h3>
+        <p class="small note">A prohibition-heavy prompt made it say “I don't know” even with the answer present. Fix: <strong>lead with the positive instruction.</strong></p>
+      </div>
+      <div class="card b">
+        <h3>Streaming isn't just “print tokens”</h3>
+        <p class="small note">Reframing arbitrary byte chunks into whole SSE events — the <strong>buffer/pop</strong> dance.</p>
+      </div>
+      <div class="card b">
+        <h3>Token estimate ≠ reality</h3>
+        <p class="small note">No local tokenizer endpoint → estimate with chars/token, then <strong>reconcile against <code>prompt_eval_count</code></strong> (I run ~6% over, the safe side).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 · DEMO -->
+  <section class="slide center">
+    <div class="kicker">Live</div>
+    <h1>Demo</h1>
+    <p class="lede">Running locally — <code>http://localhost:8000</code></p>
+  </section>
+
+  <!-- 12 · Q&A -->
+  <section class="slide center">
+    <div class="kicker">Thanks</div>
+    <h1>Q &amp; A</h1>
+  </section>
+
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const counter = document.getElementById('counter');
+  const progress = document.getElementById('progress');
+  let i = 0;
+
+  function show(n){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    progress.style.width = ((i + 1) / slides.length * 100) + '%';
+  }
+  function next(){ show(i + 1); }
+  function prev(){ show(i - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+  });
+  // click right half = next, left half = prev
+  document.getElementById('deck').addEventListener('click', (e) => {
+    (e.clientX > window.innerWidth / 2) ? next() : prev();
+  });
+
+  show(0);
+</script>
+</body>
+</html>
